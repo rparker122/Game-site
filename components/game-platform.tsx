@@ -14,7 +14,7 @@ import { MemoryGame } from "@/components/games/memory-game"
 import { SnakeGame } from "@/components/games/snake-game"
 import { WhackAMole } from "@/components/games/whack-a-mole"
 import { WordScramble } from "@/components/games/word-scramble"
-import { Game2048 } from "@/components/games/game-2048"
+
 import { HangmanGame } from "@/components/games/hangman-game"
 import { GameCard } from "@/components/game-card"
 import { ArrowLeft, Trophy, Search, Gamepad2, Brain, Zap, Clock } from "lucide-react"

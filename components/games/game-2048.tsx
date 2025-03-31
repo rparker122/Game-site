@@ -27,12 +27,15 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
   const [keepPlaying, setKeepPlaying] = useState(false)
   const { toast } = useToast()
 
-  const [showGame, setShowGame] = useState(false) // Added for toggling game visibility
+  const [showGame, setShowGame] = useState(false) // Control visibility of the game
+  const [gameInDevelopment, setGameInDevelopment] = useState(true) // Game development state
 
   // Initialize game
   useEffect(() => {
-    startGame()
-  }, [])
+    if (!gameInDevelopment) {
+      startGame()
+    }
+  }, [gameInDevelopment])
 
   // Set up keyboard controls
   useEffect(() => {
@@ -369,11 +372,15 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
 
   return (
     <div className="flex flex-col items-center">
-      <Button onClick={() => setShowGame(!showGame)} className="mb-4">
-        {showGame ? "Hide Game" : "Show Game"}
+      <Button onClick={() => setGameInDevelopment(false)} className="mb-4">
+        {gameInDevelopment ? "Game is in Development" : "Show Game"}
       </Button>
 
-      {showGame && (
+      {gameInDevelopment ? (
+        <div className="text-xl font-semibold text-center">
+          <p>Game is currently in development. Stay tuned for updates!</p>
+        </div>
+      ) : (
         <>
           <div className="flex justify-between w-full mb-4">
             <div className="flex items-center gap-2 bg-accent/30 px-3 py-2 rounded-md">
@@ -433,4 +440,3 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
     </div>
   )
 }
-

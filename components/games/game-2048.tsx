@@ -27,18 +27,20 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
   const [keepPlaying, setKeepPlaying] = useState(false)
   const { toast } = useToast()
 
-  const [showGame, setShowGame] = useState(false) // Control visibility of the game
-  const [gameInDevelopment, setGameInDevelopment] = useState(true) // Game development state
+  // Game in development flag — set to true to disable the game
+  const [gameInDevelopment] = useState(true)
 
-  // Initialize game
+  // Initialize game only if development is over
   useEffect(() => {
     if (!gameInDevelopment) {
       startGame()
     }
   }, [gameInDevelopment])
 
-  // Set up keyboard controls
+  // Keyboard controls
   useEffect(() => {
+    if (gameInDevelopment) return
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (gameOver && !keepPlaying) return
 
@@ -64,10 +66,12 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [grid, gameOver, keepPlaying])
+  }, [grid, gameOver, keepPlaying, gameInDevelopment])
 
   // Touch controls
   useEffect(() => {
+    if (gameInDevelopment) return
+
     let touchStartX = 0
     let touchStartY = 0
 
@@ -85,21 +89,12 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
       const dx = touchEndX - touchStartX
       const dy = touchEndY - touchStartY
 
-      // Determine the direction of the swipe
       if (Math.abs(dx) > Math.abs(dy)) {
-        // Horizontal swipe
-        if (dx > 50) {
-          move("right")
-        } else if (dx < -50) {
-          move("left")
-        }
+        if (dx > 50) move("right")
+        else if (dx < -50) move("left")
       } else {
-        // Vertical swipe
-        if (dy > 50) {
-          move("down")
-        } else if (dy < -50) {
-          move("up")
-        }
+        if (dy > 50) move("down")
+        else if (dy < -50) move("up")
       }
     }
 
@@ -110,10 +105,9 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
       window.removeEventListener("touchstart", handleTouchStart)
       window.removeEventListener("touchend", handleTouchEnd)
     }
-  }, [grid, gameOver, keepPlaying])
+  }, [grid, gameOver, keepPlaying, gameInDevelopment])
 
   const startGame = () => {
-    // Initialize empty grid
     const emptyGrid = Array(4)
       .fill(null)
       .map(() =>
@@ -125,7 +119,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
           })),
       )
 
-    // Add two initial tiles
     const gridWithTiles = addRandomTile(addRandomTile(emptyGrid))
 
     setGrid(gridWithTiles)
@@ -139,7 +132,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
     const newGrid = JSON.parse(JSON.stringify(currentGrid))
     const emptyCells: { row: number; col: number }[] = []
 
-    // Find all empty cells
     for (let row = 0; row < 4; row++) {
       for (let col = 0; col < 4; col++) {
         if (newGrid[row][col].value === 0) {
@@ -148,7 +140,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
       }
     }
 
-    // If there are empty cells, add a new tile
     if (emptyCells.length > 0) {
       const { row, col } = emptyCells[Math.floor(Math.random() * emptyCells.length)]
       newGrid[row][col] = {
@@ -162,10 +153,10 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
   }
 
   const move = (direction: Direction) => {
-    // Clone the grid
+    if (gameInDevelopment) return
+
     let newGrid = JSON.parse(JSON.stringify(grid))
 
-    // Reset merged flags
     newGrid = newGrid.map((row: Cell[]) =>
       row.map((cell: Cell) => ({
         ...cell,
@@ -177,7 +168,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
     let moved = false
     let scoreIncrease = 0
 
-    // Process the grid based on direction
     if (direction === "left") {
       for (let row = 0; row < 4; row++) {
         const result = processTiles(newGrid[row])
@@ -217,7 +207,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
       }
     }
 
-    // If the grid changed, add a new tile
     if (moved) {
       newGrid = addRandomTile(newGrid)
       setScore((prev) => {
@@ -226,7 +215,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
         return newScore
       })
 
-      // Check for 2048 tile
       if (!won && !keepPlaying) {
         for (let row = 0; row < 4; row++) {
           for (let col = 0; col < 4; col++) {
@@ -242,7 +230,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
         }
       }
 
-      // Check if game is over
       if (isGameOver(newGrid)) {
         setGameOver(true)
         toast({
@@ -267,7 +254,6 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
     let score = 0
     let position = 0
 
-    // Move all non-zero tiles to the left
     for (let i = 0; i < 4; i++) {
       if (tiles[i].value !== 0) {
         newTiles[position] = { ...tiles[i] }
@@ -278,14 +264,12 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
       }
     }
 
-    // Merge tiles
     for (let i = 0; i < 3; i++) {
       if (newTiles[i].value !== 0 && newTiles[i].value === newTiles[i + 1].value) {
         newTiles[i].value *= 2
         newTiles[i].mergedFrom = true
         score += newTiles[i].value
 
-        // Shift remaining tiles
         for (let j = i + 1; j < 3; j++) {
           newTiles[j] = newTiles[j + 1]
         }
@@ -298,29 +282,18 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
   }
 
   const isGameOver = (currentGrid: Cell[][]) => {
-    // Check if there are any empty cells
     for (let row = 0; row < 4; row++) {
       for (let col = 0; col < 4; col++) {
-        if (currentGrid[row][col].value === 0) {
-          return false
-        }
+        if (currentGrid[row][col].value === 0) return false
       }
     }
 
-    // Check if there are any possible merges
     for (let row = 0; row < 4; row++) {
       for (let col = 0; col < 4; col++) {
         const value = currentGrid[row][col].value
 
-        // Check right
-        if (col < 3 && value === currentGrid[row][col + 1].value) {
-          return false
-        }
-
-        // Check down
-        if (row < 3 && value === currentGrid[row + 1][col].value) {
-          return false
-        }
+        if (col < 3 && value === currentGrid[row][col + 1].value) return false
+        if (row < 3 && value === currentGrid[row + 1][col].value) return false
       }
     }
 
@@ -370,73 +343,70 @@ export function Game2048({ onScoreUpdate }: Game2048Props) {
     return "text-xl"
   }
 
+  if (gameInDevelopment) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+        <div className="bg-yellow-100 text-yellow-800 px-6 py-4 rounded-md shadow-md">
+          <h2 className="text-xl font-bold mb-2">🚧 2048 Game</h2>
+          <p>This game is currently in development. Stay tuned for updates!</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col items-center">
-      <Button onClick={() => setGameInDevelopment(false)} className="mb-4">
-        {gameInDevelopment ? "Game is in Development" : "Show Game"}
-      </Button>
-
-      {gameInDevelopment ? (
-        <div className="text-xl font-semibold text-center">
-          <p>Game is currently in development. Stay tuned for updates!</p>
+      <div className="flex justify-between w-full mb-4">
+        <div className="flex items-center gap-2 bg-accent/30 px-3 py-2 rounded-md">
+          <span>Score: {score}</span>
         </div>
-      ) : (
-        <>
-          <div className="flex justify-between w-full mb-4">
-            <div className="flex items-center gap-2 bg-accent/30 px-3 py-2 rounded-md">
-              <span>Score: {score}</span>
-            </div>
-            <Button variant="outline" onClick={startGame} className="flex items-center">
-              <RefreshCw className="mr-2 h-4 w-4" /> New Game
-            </Button>
-          </div>
+        <Button variant="outline" onClick={startGame} className="flex items-center">
+          <RefreshCw className="mr-2 h-4 w-4" /> New Game
+        </Button>
+      </div>
 
-          <div className="relative w-full max-w-md aspect-square mb-6 bg-slate-300 dark:bg-slate-800 rounded-md p-2">
-            {/* Grid background */}
-            <div className="grid grid-cols-4 gap-2 h-full">
-              {Array(16)
-                .fill(null)
-                .map((_, index) => (
-                  <div key={index} className="bg-slate-200 dark:bg-slate-700 rounded-md"></div>
-                ))}
-            </div>
+      <div className="relative w-full max-w-md aspect-square mb-6 bg-slate-300 dark:bg-slate-800 rounded-md p-2">
+        <div className="grid grid-cols-4 gap-2 h-full">
+          {Array(16)
+            .fill(null)
+            .map((_, index) => (
+              <div key={index} className="bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+            ))}
+        </div>
 
-            {/* Tiles */}
-            <div className="absolute inset-0 p-2">
-              <div className="relative h-full">
-                <AnimatePresence>
-                  {grid.flatMap((row, rowIndex) =>
-                    row.map(
-                      (cell, colIndex) =>
-                        cell.value !== 0 && (
-                          <motion.div
-                            key={cell.id}
-                            className={`absolute w-full h-full grid grid-cols-4 gap-2`}
-                            style={{
-                              gridRowStart: rowIndex + 1,
-                              gridColumnStart: colIndex + 1,
-                            }}
-                            initial={{ opacity: 0, scale: 0.5 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.5 }}
-                          >
-                            <div
-                              className={`flex justify-center items-center rounded-md ${getTileColor(
-                                cell.value,
-                              )} ${getTileFontSize(cell.value)} text-center`}
-                            >
-                              {cell.value}
-                            </div>
-                          </motion.div>
-                        ),
+        <div className="absolute inset-0 p-2">
+          <div className="relative h-full">
+            <AnimatePresence>
+              {grid.flatMap((row, rowIndex) =>
+                row.map(
+                  (cell, colIndex) =>
+                    cell.value !== 0 && (
+                      <motion.div
+                        key={cell.id}
+                        className={`absolute w-full h-full grid grid-cols-4 gap-2`}
+                        style={{
+                          gridRowStart: rowIndex + 1,
+                          gridColumnStart: colIndex + 1,
+                        }}
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                      >
+                        <div
+                          className={`flex justify-center items-center rounded-md ${getTileColor(
+                            cell.value,
+                          )} ${getTileFontSize(cell.value)} text-center`}
+                        >
+                          {cell.value}
+                        </div>
+                      </motion.div>
                     ),
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
+                ),
+              )}
+            </AnimatePresence>
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   )
 }

@@ -94,6 +94,7 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium")
   const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null)
   const [wordHistory, setWordHistory] = useState<string[]>([])
+  const [showAnswer, setShowAnswer] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -104,6 +105,7 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
     setGameActive(true)
     setWordHistory([])
     setFeedback(null)
+    setShowAnswer(false)
     getNewWord()
 
     timerRef.current = setInterval(() => {
@@ -125,6 +127,7 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
   const endGame = () => {
     setGameActive(false)
     if (timerRef.current) clearInterval(timerRef.current)
+    setShowAnswer(true)
     onScoreUpdate(score)
   }
 
@@ -213,6 +216,13 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
     setScore((prev) => Math.max(0, prev - 1))
   }
 
+  // Auto focus input when scrambledWord changes or game starts
+  useEffect(() => {
+    if (gameActive && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [scrambledWord, gameActive])
+
   // Clean up on unmount
   useEffect(() => {
     return () => {
@@ -232,7 +242,7 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
         </div>
       </div>
 
-      {!gameActive && (
+      {!gameActive && !showAnswer && (
         <div className="mb-6 w-full">
           <h3 className="text-lg font-medium mb-2">Select Difficulty:</h3>
           <div className="flex gap-2 mb-4">
@@ -301,6 +311,9 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
                   placeholder="Type your answer..."
                   className="pr-10"
                   autoComplete="off"
+                  inputMode="text"
+                  spellCheck={false}
+                  aria-label="Unscrambled word input"
                 />
                 <AnimatePresence>
                   {feedback && (
@@ -309,6 +322,7 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
                       className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                      aria-live="polite"
                     >
                       {feedback === "correct" ? (
                         <Check className="text-green-500 h-5 w-5" />
@@ -333,19 +347,25 @@ export function WordScramble({ onScoreUpdate }: WordScrambleProps) {
         </>
       )}
 
-      {!gameActive && score > 0 && (
-        <div className="mb-6 p-4 bg-green-800/20 rounded-md text-center">
+      {!gameActive && showAnswer && (
+        <div className="mb-6 p-4 bg-red-800/20 rounded-md text-center max-w-md w-full">
           <h3 className="text-xl font-bold mb-2">Game Over!</h3>
-          <p className="text-2xl text-amber-400">Final Score: {score}</p>
+          <p className="text-lg mb-4">
+            Time's up! The correct answer was:{" "}
+            <span className="font-semibold text-amber-400">{currentWord}</span>
+          </p>
+          <p className="text-2xl text-amber-400 mb-4">Final Score: {score}</p>
+          <Button onClick={startGame} className="w-full" leftIcon={<RefreshCw />}>
+            Restart Game
+          </Button>
         </div>
       )}
 
       {gameActive && (
-        <Button variant="outline" onClick={endGame} className="flex items-center">
+        <Button variant="outline" onClick={endGame} className="flex items-center mt-4">
           <RefreshCw className="mr-2 h-4 w-4" /> End Game
         </Button>
       )}
     </div>
   )
 }
-

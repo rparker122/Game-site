@@ -17,6 +17,9 @@ interface Card {
 
 const EMOJIS = ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🦁", "🐯", "🐨", "🐮"]
 
+// Toggle this to true when the game is ready
+const IS_GAME_ENABLED = false
+
 export function MemoryGame({ onScoreUpdate }: MemoryGameProps) {
   const [cards, setCards] = useState<Card[]>([])
   const [flippedCards, setFlippedCards] = useState<number[]>([])
@@ -25,26 +28,22 @@ export function MemoryGame({ onScoreUpdate }: MemoryGameProps) {
   const [gameCompleted, setGameCompleted] = useState(false)
   const [timer, setTimer] = useState(0)
   const [score, setScore] = useState(0)
+  const [disableClick, setDisableClick] = useState(false)
 
-  // Initialize game
   useEffect(() => {
     initializeGame()
   }, [])
 
-  // Timer
   useEffect(() => {
     let interval: NodeJS.Timeout
-
     if (gameStarted && !gameCompleted) {
       interval = setInterval(() => {
         setTimer((prev) => prev + 1)
       }, 1000)
     }
-
     return () => clearInterval(interval)
   }, [gameStarted, gameCompleted])
 
-  // Check for game completion
   useEffect(() => {
     if (cards.length > 0 && cards.every((card) => card.isMatched)) {
       setGameCompleted(true)
@@ -52,75 +51,86 @@ export function MemoryGame({ onScoreUpdate }: MemoryGameProps) {
     }
   }, [cards])
 
-  // Check for matches when two cards are flipped
   useEffect(() => {
     if (flippedCards.length === 2) {
+      setDisableClick(true)
       const [firstIndex, secondIndex] = flippedCards
 
       if (cards[firstIndex].emoji === cards[secondIndex].emoji) {
-        // Match found
         setCards((prevCards) =>
           prevCards.map((card, index) =>
-            index === firstIndex || index === secondIndex ? { ...card, isMatched: true } : card,
+            index === firstIndex || index === secondIndex
+              ? { ...card, isMatched: true }
+              : card,
           ),
         )
       }
 
-      // Reset flipped cards after a delay
       const timeout = setTimeout(() => {
         setFlippedCards([])
+        setDisableClick(false)
       }, 1000)
 
       return () => clearTimeout(timeout)
     }
   }, [flippedCards, cards])
 
-  const initializeGame = () => {
-    // Create pairs of cards with emojis
-    const shuffledEmojis = [...EMOJIS, ...EMOJIS]
-      .sort(() => Math.random() - 0.5)
-      .map((emoji, index) => ({
-        id: index,
-        emoji,
-        isFlipped: false,
-        isMatched: false,
-      }))
+  const shuffleArray = (array: any[]) => {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
+  }
 
-    setCards(shuffledEmojis)
+  const initializeGame = () => {
+    const shuffledEmojis = shuffleArray([...EMOJIS, ...EMOJIS])
+    const initialCards: Card[] = shuffledEmojis.map((emoji, index) => ({
+      id: index,
+      emoji,
+      isFlipped: false,
+      isMatched: false,
+    }))
+
+    setCards(initialCards)
     setFlippedCards([])
     setMoves(0)
     setTimer(0)
     setGameStarted(false)
     setGameCompleted(false)
     setScore(0)
+    setDisableClick(false)
   }
 
   const handleCardClick = (index: number) => {
-    // Ignore if card is already flipped or matched
-    if (cards[index].isFlipped || cards[index].isMatched || flippedCards.length >= 2) {
+    if (
+      disableClick ||
+      cards[index].isFlipped ||
+      cards[index].isMatched ||
+      flippedCards.length >= 2
+    ) {
       return
     }
 
-    // Start game on first card click
     if (!gameStarted) {
       setGameStarted(true)
     }
 
-    // Flip the card
-    setCards((prevCards) => prevCards.map((card, i) => (i === index ? { ...card, isFlipped: true } : card)))
+    setCards((prevCards) =>
+      prevCards.map((card, i) =>
+        i === index ? { ...card, isFlipped: true } : card,
+      ),
+    )
 
-    // Add to flipped cards
     setFlippedCards((prev) => [...prev, index])
 
-    // Increment moves if this is the second card
     if (flippedCards.length === 1) {
       setMoves((prev) => prev + 1)
     }
   }
 
   const calculateScore = () => {
-    // Score formula: 1000 - (moves * 10) - (seconds * 5)
-    // With minimum score of 100
     const calculatedScore = Math.max(100, 1000 - moves * 10 - timer * 5)
     setScore(calculatedScore)
     onScoreUpdate(calculatedScore)
@@ -130,6 +140,17 @@ export function MemoryGame({ onScoreUpdate }: MemoryGameProps) {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
+
+  if (!IS_GAME_ENABLED) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+        <div className="bg-yellow-100 text-yellow-800 px-6 py-4 rounded-md shadow-md">
+          <h2 className="text-xl font-bold mb-2">🚧 Memory Game</h2>
+          <p>This game is currently in development. Please check back later!</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -156,15 +177,18 @@ export function MemoryGame({ onScoreUpdate }: MemoryGameProps) {
 
       <div className="grid grid-cols-4 gap-2 w-full max-w-md mb-6">
         {cards.map((card, index) => (
-          <div
+          <button
             key={card.id}
-            className={`aspect-square flex items-center justify-center text-3xl cursor-pointer transition-all duration-300 transform ${
-              card.isFlipped || card.isMatched ? "bg-slate-600 rotate-y-0" : "bg-slate-700 rotate-y-180"
-            } ${card.isMatched ? "bg-green-800" : ""} rounded-md`}
+            aria-label={`Card ${index + 1}`}
             onClick={() => handleCardClick(index)}
+            onKeyDown={(e) => e.key === "Enter" && handleCardClick(index)}
+            className={`aspect-square flex items-center justify-center text-3xl transition-all duration-300 rounded-md select-none
+              ${card.isMatched ? "bg-green-800 animate-pulse" : ""}
+              ${card.isFlipped || card.isMatched ? "bg-slate-600" : "bg-slate-700"}
+            `}
           >
             {(card.isFlipped || card.isMatched) && card.emoji}
-          </div>
+          </button>
         ))}
       </div>
 
@@ -174,4 +198,3 @@ export function MemoryGame({ onScoreUpdate }: MemoryGameProps) {
     </div>
   )
 }
-
